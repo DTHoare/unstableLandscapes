@@ -9,7 +9,11 @@ class Block {
   ----------------------------------------------------------------------------- */ 
   Block(PVector position_, float size_, color col_){
     position = position_.copy();
-    size = size_;
+    if(size_ >= 1) {
+      size = size_;
+    } else {
+      size=1;
+    }
     
     col = col_;
     
@@ -27,7 +31,7 @@ class Block {
   /* -----------------------------------------------------------------------------
   Display
   ----------------------------------------------------------------------------- */ 
-  void display() {
+  void display2D() {
     rectMode(TOP);
     noStroke();
     fill(col);
@@ -35,6 +39,17 @@ class Block {
     pushMatrix();
     translate(position.x, position.y);
     rect(0,0,size,height);
+    popMatrix();
+  }
+  
+  void display3D() {
+    noStroke();
+    //stroke(0);
+    fill(col);
+    
+    pushMatrix();
+    translate(position.x, position.y, position.z-200);
+    box(size, size, 400);
     popMatrix();
   }
   

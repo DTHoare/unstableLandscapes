@@ -14,6 +14,9 @@ static class Math {
     return y;
   }
   
+  /* -----------------------------------------------------------------------------
+  dampedOscillation
+  ----------------------------------------------------------------------------- */
   //gives organic movement
   //so that it bounces after each sigmoid
   //want a damped simple harmonic motion

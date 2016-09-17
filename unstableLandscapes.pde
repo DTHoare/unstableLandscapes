@@ -1,55 +1,71 @@
 import java.util.*;
-Landscape2D landscape;
-Landscape2D mountains;
-Landscape2D distantMountains;
-Landscape2D distantMountains2;
+Landscape3D landscape3D;
+Landscape3D water;
 ArrayList<Particle> particles;
 int fps = 30;
 color skyBlue = color(135,206,250);
-color waterBlue = color(70,90,220);
+color waterBlue = color(70,90,220, 20);
 color grass = color(10,149,84);
 color grassFar = color(30,169,134);
 color grassFar2 = color(50,199,164);
 color sand = color(239,221,111);
+boolean useBlocks = false;
 
 /* -----------------------------------------------------------------------------
 Setup
 ----------------------------------------------------------------------------- */ 
 void setup() {
-  size(500,500);
+  size(540,540, P3D);
+  ortho();
   frameRate(fps);
   //use a power of 2 + 1 for midpoint
-  landscape = new Landscape2D((int)pow(2,12) + 1,0.2, sand);
-  landscape.createPlane(2*height/3);
-  landscape.midPointDisplacement(height/7,0.5);
-  particles = new ArrayList();
   
-  mountains = new Landscape2D((int)pow(2,12) + 1,0.2, grass);
-  mountains.createPlane(0.6*height);
-  mountains.midPointDisplacement(150,0.55);
+  landscape3D = new Landscape3D((int)pow(2,10) + 1,(int)pow(2,10) + 1,0.4, sand);
+  landscape3D.createPlane(0);
+  landscape3D.midPointDisplacement(200,0.5);
+  landscape3D.centrePlane();
   
-  distantMountains = new Landscape2D((int)pow(2,12) + 1,0.2, grassFar);
-  distantMountains.createPlane(0.5*height);
-  distantMountains.midPointDisplacement(150,0.55);
-  distantMountains2 = new Landscape2D((int)pow(2,12) + 1,0.2, grassFar2);
-  distantMountains2.createPlane(0.4*height);
-  distantMountains2.midPointDisplacement(150,0.55);
+  water = new Landscape3D((int)pow(2,10) + 1,(int)pow(2,10) + 1,0.4, waterBlue);
+  water.createPlane(0);
+  water.midPointDisplacement(10,0.7);
 }
 
 /* -----------------------------------------------------------------------------
 Draw
 ----------------------------------------------------------------------------- */ 
 void draw() {
-  //draw background
   background(skyBlue);
-  distantMountains2.display();
-  distantMountains.display();
-  mountains.display();
-  noStroke();
-  fill(waterBlue);
-  rectMode(CORNER);
-  rect(0,height/2,width,height);
+  directionalLight(255,255,255,1,2,-1);
   
+  if(useBlocks) {
+    landscape3D.display();
+  } else {
+    landscape3D.displayMesh();
+  }
+  
+  water.display();
+  
+}
+
+/* -----------------------------------------------------------------------------
+Save
+----------------------------------------------------------------------------- */
+void mouseClicked(){ 
+  saveFrame("image.png");
+}
+
+void keyPressed(){
+  if(useBlocks) {
+    useBlocks = false;
+  } else {
+    useBlocks = true;
+  }
+}
+
+/* -----------------------------------------------------------------------------
+iterateParticles
+----------------------------------------------------------------------------- */
+void iterateParticles() {
   pushMatrix();
   //center grid
   translate(width/2, 2*height/3);
@@ -66,17 +82,4 @@ void draw() {
     }
   }
   popMatrix();
-  
-    //perform landscape operations
-  //landscape.moveAllNoise();
-  //landscape.bounceToPeaksSigmoid();
-  landscape.display();
-  
-}
-
-/* -----------------------------------------------------------------------------
-Save
------------------------------------------------------------------------------ */
-void mouseClicked(){ 
-  saveFrame("image.png");
 }

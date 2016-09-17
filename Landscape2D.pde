@@ -40,7 +40,7 @@ class Landscape2D {
     pushMatrix();
     translate(width/2, 0);
     for(int i = 0; i < n; i++) {
-      grid[i].display();
+      grid[i].display2D();
     }
     popMatrix();
   }
@@ -58,11 +58,14 @@ class Landscape2D {
     grid[n-1].position.y += random(-displacement,displacement);
     displacement *= roughness;
     
+    //half into segments and calculate midpoints.
     for(int segments = 1; segments < n; segments *= 2) {
       for( int centrePoint = (n/segments)/2; centrePoint < n; centrePoint += n/segments) {
+        //average point at either end of segment
         grid[centrePoint].position.y = grid[centrePoint - (n/segments)/2].position.y;
         grid[centrePoint].position.y += grid[centrePoint + (n/segments)/2].position.y;
         grid[centrePoint].position.y /=2;
+        //displace
         grid[centrePoint].position.y += random(-displacement,displacement);
       }
       //adjust displacement
