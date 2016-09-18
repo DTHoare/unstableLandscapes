@@ -47,10 +47,14 @@ class Block {
     //stroke(0);
     fill(col);
     
-    pushMatrix();
-    translate(position.x, position.y, position.z-200);
-    box(size, size, 400);
-    popMatrix();
+    for(int i = 1; i < 29; i++) {
+      pushMatrix();
+      translate(position.x, position.y, position.z-200-i);
+      fill(col, i*30);
+      box(size, size, 400);
+      popMatrix();
+    }
+    
   }
   
   /* -----------------------------------------------------------------------------
