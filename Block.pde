@@ -47,13 +47,9 @@ class Block {
     //stroke(0);
     fill(col);
     
-    for(int i = 1; i < 29; i++) {
-      pushMatrix();
-      translate(position.x, position.y, position.z-200-i);
-      fill(col, i*30);
-      box(size, size, 400);
-      popMatrix();
-    }
+    translate(position.x, position.y, position.z-200);
+    fill(col);
+    box(size, size, 400);
     
   }
   
