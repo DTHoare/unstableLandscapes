@@ -10,7 +10,7 @@ class Particle {
   Particle(PVector pos, PVector v) {
     position = pos.copy();
     velocity = v.copy();
-    maxLife = (int)random(25,75);
+    maxLife = 10;
     life = maxLife;
   }
   
@@ -31,6 +31,17 @@ class Particle {
     fill(255-life*(255/maxLife));
     float size = (maxLife-float(life))/10;
     rect(position.x, position.y, size,size);
+  }
+  
+  void display3D() {
+    noStroke();
+    fill(255-life*(255/maxLife));
+    specular(255,255,255);
+    float size = 1;
+    pushMatrix();
+      translate(position.x,position.y,position.z);
+      box(size);
+    popMatrix();
   }
   
   /* -----------------------------------------------------------------------------

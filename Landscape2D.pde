@@ -84,7 +84,7 @@ class Landscape2D {
         PVector v = new PVector(random(-0.1,0.1),0);
         v.y = (pos.y)/10;
         Particle particle = new Particle(pos,v);
-        particles.add(particle);
+        //particles.add(particle);
       }
     }
     int offset = 10000*( floor(frameCount/60) % 2 );

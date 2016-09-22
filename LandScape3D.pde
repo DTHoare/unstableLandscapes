@@ -13,6 +13,8 @@ class Landscape3D {
   boolean box;
   float[] yBoundary;
   
+  ArrayList<Particle> particles;
+  
   /* -----------------------------------------------------------------------------
   Constructor
   ----------------------------------------------------------------------------- */
@@ -37,6 +39,8 @@ class Landscape3D {
     for(int i = 0; i < n; i ++){
       yBoundary[i] = -1000;
     }
+    
+    particles = new ArrayList<Particle>();
   }
   
   /* -----------------------------------------------------------------------------
@@ -334,24 +338,30 @@ class Landscape3D {
   }
   
   void radialWaves(float a, float scale, float lambda, float revs, float offset) {
-    float A;
+    float A, xp, yp, xFromCentre, yFromCentre;
     for(int x = 0; x < n; x++) {
       for(int y = 0; y < n; y++) {
-        A = map(noise(scale*x/float(n)+offset,scale*y/float(n)+offset),0,1,-a,a);
-        grid[x][y].position.z += A*sin(-sqrt((x-floor(n/2))*(x-floor(n/2)) + (y-floor(n/2))*(y-floor(n/2)))*2*PI/lambda + revs*frameCount * 2*PI/30);
+        xp = float(x)*blockSize;
+        yp = float(y)*blockSize;
+        A = map(noise(scale*xp/float(n)+offset,scale*yp/float(n)+offset),0,1,-a,a);
+        
+        xFromCentre = float(x-floor(n/2)) * blockSize;
+        yFromCentre = float(y-floor(n/2)) * blockSize;
+        grid[x][y].position.z += A*sin(-sqrt(pow(xFromCentre,2) + pow(yFromCentre,2))*2*PI/lambda + revs*frameCount * 2*PI/30);
       }
     }
   }
   
   void chamferEdges(int edgeSize, float chamferHeight) {
-    int x, y, i;
+    int x, y;
+    float distance;
     
     //this quadratic funtion is the result of solving differential equation
     //with boundary conditions on getting this to look nice
     float A, B, C, L;
     float h = chamferHeight;
     L = 2*(h-1);
-    int chamferLength = int(L/blockSize);
+    int chamferLength = int(L);
     
     A = -1;
     A /= 4*(h-2);
@@ -362,47 +372,47 @@ class Landscape3D {
     C = 1;
     C /= 2-h;
     
-    //straight edge
-    for(i = 0; i < 2; i++) {
-      for(x = 0; x < n; x++) {
-        for(y = 0; y < n; y++) {
-          if(distanceToEdge(x,y) == i) {
-            grid[x][y].position.z = float(i);
-          }
+    for(x = 0; x < n; x++) {
+      for(y = 0; y < n; y++) {
+        //straight edge
+        distance = distanceToEdge(float(x),float(y),float(chamferLength));
+        if(distance < 2) {
+          grid[x][y].position.z = distance;
+        }
+        //round edge
+        else if(distance < chamferLength) {
+          grid[x][y].position.z = A*distance*distance + B*distance + C;
+        }
+        //flatten
+        else if(distance < edgeSize) {
+          //grid[x][y].position.z *= pow((distance-L)/float(edgeSize-chamferLength),1);
+          //grid[x][y].position.z += chamferHeight * (float(edgeSize)-distance)/float(edgeSize-chamferLength);
+          
+          grid[x][y].position.z *= Math.periodicSigmoid(distance - L, 1, 0.2, float(edgeSize-chamferLength));
+          grid[x][y].position.z += Math.periodicSigmoid(float(edgeSize)-(distance+1), chamferHeight, 0.2, float(edgeSize-chamferLength));
         }
       }
     }
     
-    // round edge
-    for(i = 2; i < chamferLength; i++) {
-      for(x = 0; x < n; x++) {
-        for(y = 0; y < n; y++) {
-          if(distanceToEdge(x,y) == i) {
-            grid[x][y].position.z = A*float(i)*float(i) + B*float(i) + C;
-          }
-        }
-      }
-    }
-    
-    //flatten
-    for(i = chamferLength; i < edgeSize; i++) {
-      for(x = 0; x < n; x++) {
-        for(y = 0; y < n; y++) {
-          if(distanceToEdge(x,y) == i) {
-            grid[x][y].position.z *= pow(float(i-chamferLength)/float(edgeSize-chamferLength),1);
-            grid[x][y].position.z += chamferHeight * float(edgeSize-i)/float(edgeSize-chamferLength);
-          }
-        }
-      }
-    }
 
   }
   
-  int distanceToEdge(int x, int y) {
-    int xDistance, yDistance;
-    xDistance = min(x, (n-1)-x);
-    yDistance = min(y, (n-1)-y);
-    return(min(xDistance,yDistance));
+  float distanceToEdge(float x, float y, float chamfer) {
+    //check linear distances
+    float xDistance, yDistance;
+    xDistance = min(x, (n-1)-x)*blockSize;
+    yDistance = min(y, (n-1)-y)*blockSize;
+    //cases not in corners
+    if(xDistance > chamfer || yDistance > chamfer) {
+      return(min(xDistance,yDistance));
+    }
+    
+    //corner cases
+    else {
+      float r = sqrt(pow(xDistance-chamfer,2) + pow(yDistance-chamfer,2));
+      return(chamfer - r);
+    }
+    
   }
   
   void waterfallShape(float a, float fall) {
@@ -416,16 +426,51 @@ class Landscape3D {
   }
   
   void waterfallRipple(float a, float lambda, float revs, float offset) {
-    float A;
+    float A, xp, yp;
     for(int x = 0; x < n; x++) {
       for(int y = 0; y < n; y++) {
-        A = y * a/float(n);
-        A *= map(noise(12*x/float(n)+offset,3*y/float(n)+offset),0,1,-a,a);
+        xp = float(x) * blockSize;
+        yp = float(y) * blockSize;
+        A = yp * a/float(n);
+        A *= map(noise(12*xp/float(n)+offset,3*yp/float(n)+offset),0,1,-a,a);
         //waves falling down
-        grid[x][y].position.z += A*pow(sin(-y*2*PI/lambda + revs*frameCount * 2*PI/30),2);
+        grid[x][y].position.z += A*pow(sin(-yp*2*PI/lambda + revs*frameCount * 2*PI/30),2);
         //standing waves across
-        grid[x][y].position.z += A*pow(cos(revs*frameCount * 2*PI/30)*sin(x*2*PI/lambda),2);
+        grid[x][y].position.z += A*pow(cos(revs*frameCount * 2*PI/30)*sin(xp*2*PI/lambda),2);
         grid[x][y].position.z += abs(A);
+      }
+    }
+  }
+  
+  /* -----------------------------------------------------------------------------
+  particle effects
+  ----------------------------------------------------------------------------- */
+  void waterfallFoam(float threshold) {
+    PVector v;
+    PVector pos;
+    Particle p;
+    for(int x = 0; x < n; x++) {
+      for(int y = 0; y < n; y++) {
+        if(grid[x][y].position.z > threshold) {
+          v = new PVector(random(-1,1),(y)/n,5*(n-y)/n);
+          pos = new PVector(grid[x][y].position.x,grid[x][y].position.y-10,grid[x][y].position.z-10);
+          p = new Particle(pos,v);
+          particles.add(p);
+        }
+      }
+    }
+  }
+  
+  void iterateParticles() {
+    //Iterator 
+    Iterator<Particle> it = particles.iterator();
+    while (it.hasNext()) {
+      Particle p = it.next();
+      p.update();
+      if (p.isDead()) {
+        it.remove();
+      } else {
+        p.display3D();
       }
     }
   }

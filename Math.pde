@@ -7,6 +7,7 @@ static class Math {
   //it transitions smoothly from 0 to magnitude as a sigmoid
   //higher transitionSpeed increases the speed from 0 to magnitude
   //period is the time between jumps
+  //t = 0
   static float periodicSigmoid(float t, float magnitude, float transitionSpeed, float period) {
     float y;
     y = magnitude;
