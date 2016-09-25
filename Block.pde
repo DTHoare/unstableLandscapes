@@ -1,3 +1,9 @@
+/* -----------------------------------------------------------------------------
+Block class allows for landscapes to be drawing using cubes, minecraft style.
+Fairly basic and mostly unexplored. May be more interesting if shadows implemented
+Currently used to store xys position data for meshes
+----------------------------------------------------------------------------- */
+
 class Block {
   PVector position;
   PVector velocity; 

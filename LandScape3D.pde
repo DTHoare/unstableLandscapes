@@ -1,15 +1,31 @@
+/* -----------------------------------------------------------------------------
+Landscape3D contains many functions for calculating and drawing terrains and water.
+It includes a diamond-square algorithm for terrain generation, and many sinusoidal
+wave equations with some level of perlin noise includes.
+
+Contains functions to display as either meshes or blocks. Meshes are more realistic.
+----------------------------------------------------------------------------- */
+
 class Landscape3D {
   Block grid[][];
+  //previous/initial position stores to allow for easy looping calculations
   float previousPosition[][];
   int n;
+  //blockSize is spacing between points, size is total size, blockSize = size/n
   float blockSize;
   float size;
+  
+  //drawing parameters
   color col;
   float specular;
+  float shiny;
+  //draw resolution gives stepsize of iterating though array. Ie 1 = highest resolution
+  int drawResolution;
   
   int centreIndexX;
   int centreIndexY;
   
+  //box allows drawing outside walls to give appearence of solid
   boolean box;
   float[] yBoundary;
   
@@ -25,6 +41,7 @@ class Landscape3D {
     
     col = col_;
     specular=specular_;
+    shiny = 0;
     
     centreIndexX = floor(n/2);
     centreIndexY = floor(n/2);
@@ -41,6 +58,7 @@ class Landscape3D {
     }
     
     particles = new ArrayList<Particle>();
+    drawResolution = 32;
   }
   
   /* -----------------------------------------------------------------------------
@@ -49,6 +67,7 @@ class Landscape3D {
   void createPlane(float height_) {
     for(int i = 0; i < n; i++) {
       for(int j = 0; j < n; j++) {
+        //create new block which holds xyz position data
         PVector position = new PVector(float(i-centreIndexX)*blockSize,float(j-centreIndexY)*blockSize,height_);
         Block block = new Block(position, blockSize, col);
         grid[i][j] = block;
@@ -76,6 +95,8 @@ class Landscape3D {
   /* -----------------------------------------------------------------------------
   centrePlane
   ----------------------------------------------------------------------------- */
+  //set the average z value of the terrain to 0
+  //used for terrains to allow easy water placement
   void centrePlane() {
     float average = 0;
     for(int i = 0; i < n; i++) {
@@ -95,6 +116,7 @@ class Landscape3D {
   /* -----------------------------------------------------------------------------
   calculateEdge
   ----------------------------------------------------------------------------- */
+  //returns an array of z positions of the given edge 
   //edge 1: y = 0
   //edge 2: x = width
   //edge 3: y = height
@@ -138,7 +160,7 @@ class Landscape3D {
   /* -----------------------------------------------------------------------------
   Display
   ----------------------------------------------------------------------------- */ 
-  //display using cuboids - lower quality
+  //display using cubes - lower quality
   void display() {
     specular(specular,specular,specular);
     for(int i = 0; i < n; i++) {
@@ -151,29 +173,36 @@ class Landscape3D {
   //display using a trianglestrip mesh
   void displayMesh() {
     specular(specular,specular,specular);
-    
+    shininess(shiny);
     noStroke();
     fill(col);
     
     //create the surface
-    for(int i = 0; i < n-1; i++) {
+    for(int i = 0; i < n-1; i+=drawResolution) {
       beginShape(TRIANGLE_STRIP);
+      
       //top surface, in strips parralel to y axis
-      for(int j = 0; j < n; j++) {
+      for(int j = 0; j < n; j+=drawResolution) {
+        fill(perlinColour(grid[i][j].position.x,grid[i][j].position.y,90));
         vertex(grid[i][j].position.x, grid[i][j].position.y, grid[i][j].position.z);
-        vertex(grid[i+1][j].position.x, grid[i+1][j].position.y, grid[i+1][j].position.z);
+        vertex(grid[i+drawResolution][j].position.x,
+          grid[i+drawResolution][j].position.y,
+          grid[i+drawResolution][j].position.z);
       }
       
       if(box){
         //wrap around to create walls
-        vertex(grid[i][n-1].position.x, grid[i][n-1].position.y, -200);
-        vertex(grid[i+1][n-1].position.x, grid[i+1][n-1].position.y, -200);
+        vertex(grid[i][n-drawResolution].position.x, grid[i][n-drawResolution].position.y, 200);
+        vertex(grid[i+drawResolution][n-drawResolution].position.x,
+          grid[i+drawResolution][n-drawResolution].position.y, 200);
         
-        vertex(grid[i][0].position.x, grid[i][0].position.y, -200);
-        vertex(grid[i+1][0].position.x, grid[i+1][0].position.y, -200);
+        vertex(grid[i][0].position.x, grid[i][0].position.y, 200);
+        vertex(grid[i+drawResolution][0].position.x, grid[i+drawResolution][0].position.y, 200);
         
         vertex(grid[i][0].position.x, grid[i][0].position.y, grid[i][0].position.z);
-        vertex(grid[i+1][0].position.x, grid[i+1][0].position.y, grid[i+1][0].position.z);
+        vertex(grid[i+drawResolution][0].position.x,
+          grid[i+drawResolution][0].position.y,
+          grid[i+drawResolution][0].position.z);
       }
       endShape();
     }
@@ -182,16 +211,16 @@ class Landscape3D {
       //create a wall on the two remaining sides
       beginShape(TRIANGLE_STRIP);
       int i = n-1;
-      for(int j = 0; j < n; j++) {
+      for(int j = 0; j < n; j+=drawResolution) {
         vertex(grid[i][j].position.x, grid[i][j].position.y, grid[i][j].position.z);
-        vertex(grid[i][j].position.x, grid[i][j].position.y, -200);
+        vertex(grid[i][j].position.x, grid[i][j].position.y, 200);
       }
       endShape();
       
       beginShape(TRIANGLE_STRIP);
-      for(int j = 0; j < n; j++) {
+      for(int j = 0; j < n; j+=drawResolution) {
         vertex(grid[0][j].position.x, grid[0][j].position.y, grid[0][j].position.z);
-        vertex(grid[0][j].position.x, grid[0][j].position.y, -200);
+        vertex(grid[0][j].position.x, grid[0][j].position.y, 200);
       }
       endShape();
     }
@@ -199,6 +228,8 @@ class Landscape3D {
     
   }
   
+  //allows for multiple meshes to be used for transparency
+  //processing seems to have a problem with correct order for transparency
   void displayMeshLayered(int layers) {
     color originalColour = col;
     
@@ -214,8 +245,16 @@ class Landscape3D {
     col = originalColour;
   }
   
+  void highResolution() {
+    drawResolution = 1;
+  }
+  
+  void lowResolution() {
+    drawResolution = 32;
+  }
+  
   /* -----------------------------------------------------------------------------
-  changeAlpha
+  colour adjustments
   ----------------------------------------------------------------------------- */
   color changeAlpha(color col, float a){
     float r,g,b;
@@ -225,9 +264,22 @@ class Landscape3D {
     return(color(r,g,b,a));
   }
   
+  //provide some perlin noise based variation to colour
+  color perlinColour(float x, float y, float variation) {
+    float r,g,b;
+    r = red(col) + variation*noise(x*0.1,y*0.1,0);
+    g = green(col) + variation*noise(x*0.1,y*0.1,753);
+    b = blue(col) + variation*noise(x*0.1,y*0.1,364);
+    r = constrain(r,0,255);
+    g = constrain(g,0,255);
+    b = constrain(b,0,255);
+    return(color(r,g,b));
+  }
+  
   /* -----------------------------------------------------------------------------
   Mid-Point Displacement
   ----------------------------------------------------------------------------- */ 
+  //standard diamond-square algorithm
   void midPointDisplacement(float displacement_, float roughness_) {
     //parameters
     float displacement = displacement_;
@@ -328,19 +380,21 @@ class Landscape3D {
   }
   
   void yWaves(float a, float scale, float lambda, float revs, float offset) {
-    float A;
-    for(int x = 0; x < n; x++) {
-      for(int y = 0; y < n; y++) {
-        A = map(noise(scale*x/float(n)+offset,scale*y/float(n)+offset),0,1,-a,a);
-        grid[x][y].position.z += A*sin(-y*2*PI/lambda + revs*frameCount * 2*PI/30);
+    float A, xp, yp;
+    for(int x = 0; x < n; x+=drawResolution) {
+      for(int y = 0; y < n; y+=drawResolution) {
+        xp = float(x)*blockSize;
+        yp = float(y)*blockSize;
+        A = map(noise(scale*xp/float(n)+offset,scale*yp/float(n)+offset),0,1,-a,a);
+        grid[x][y].position.z += A*sin(-yp*2*PI/lambda + revs*frameCount * 2*PI/30);
       }
     }
   }
   
   void radialWaves(float a, float scale, float lambda, float revs, float offset) {
     float A, xp, yp, xFromCentre, yFromCentre;
-    for(int x = 0; x < n; x++) {
-      for(int y = 0; y < n; y++) {
+    for(int x = 0; x < n; x+=drawResolution) {
+      for(int y = 0; y < n; y+=drawResolution) {
         xp = float(x)*blockSize;
         yp = float(y)*blockSize;
         A = map(noise(scale*xp/float(n)+offset,scale*yp/float(n)+offset),0,1,-a,a);
@@ -372,8 +426,8 @@ class Landscape3D {
     C = 1;
     C /= 2-h;
     
-    for(x = 0; x < n; x++) {
-      for(y = 0; y < n; y++) {
+    for(x = 0; x < n; x+=drawResolution) {
+      for(y = 0; y < n; y+=drawResolution) {
         //straight edge
         distance = distanceToEdge(float(x),float(y),float(chamferLength));
         if(distance < 2) {
@@ -415,16 +469,6 @@ class Landscape3D {
     
   }
   
-  void waterfallShape(float a, float fall) {
-    float A;
-    for(int x = 0; x < n; x++) {
-      for(int y = 0; y < n; y++) {
-        A = a * Math.tanh(fall*y);
-        grid[x][y].position.z += A;
-      }
-    }
-  }
-  
   void waterfallRipple(float a, float lambda, float revs, float offset) {
     float A, xp, yp;
     for(int x = 0; x < n; x++) {
@@ -445,6 +489,8 @@ class Landscape3D {
   /* -----------------------------------------------------------------------------
   particle effects
   ----------------------------------------------------------------------------- */
+  //generate particles to represent foam produced by the waterfall
+  //needs work, doesn't look very good
   void waterfallFoam(float threshold) {
     PVector v;
     PVector pos;
@@ -461,6 +507,7 @@ class Landscape3D {
     }
   }
   
+  //update delete existing particles
   void iterateParticles() {
     //Iterator 
     Iterator<Particle> it = particles.iterator();

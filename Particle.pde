@@ -1,3 +1,7 @@
+/* -----------------------------------------------------------------------------
+Particle class allows for iterators and temporary particles that die over time
+----------------------------------------------------------------------------- */
+
 class Particle {
   PVector position;
   PVector velocity;

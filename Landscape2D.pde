@@ -1,3 +1,8 @@
+/* -----------------------------------------------------------------------------
+Landscape2D class allows for 2D landscapes. Useful for generating mountain backdrops etc
+Currently unused
+----------------------------------------------------------------------------- */
+
 class Landscape2D {
   Block[] grid;
   float[] previousPosition;

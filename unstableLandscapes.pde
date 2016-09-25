@@ -1,18 +1,31 @@
+/* -----------------------------------------------------------------------------
+unstableLandscapes.pde
+Daniel Hoare 2016
+
+3D terrain generation, with animated water and first person camera
+----------------------------------------------------------------------------- */
+
+/* -----------------------------------------------------------------------------
+Globals
+----------------------------------------------------------------------------- */ 
 import java.util.*;
 Landscape3D landscape3D;
 Landscape3D water;
 Landscape3D waterfallLeft;
 Landscape3D waterfallRight;
+Camera cam;
 
-boolean useBlocks = false;
+//initial parameters for drawing
 float angle = 0;
 float waterHeight = 3;
-
 int fps = 30;
+boolean highRes = false;
+
+//saving parameters
 boolean save = false;
 int frames = 0;
-boolean anim = false;
 
+//colours
 color skyBlue = color(135,206,250);
 color waterBlue = color(70,90,220);
 color grass = color(10,149,84);
@@ -26,85 +39,93 @@ Setup
 ----------------------------------------------------------------------------- */ 
 void setup() {
   size(540,540, P3D);
-  //ortho();
   frameRate(fps); 
-  //use a power of 2 + 1 for midpoint
   
+  //ortho for looking at cube world, use perspective for first person camera
+  //ortho();
+  //increase fov, and allow to see closer
+  float cameraZ = ((height/2.0) / tan(PI*60.0/360.0));
+  //based upon default values, with wider FOV, and able to see objets closer to the camera
+  perspective(PI/2.0, width/height, cameraZ/1000.0, cameraZ*10.0);
+  
+  //initial parameters of the first person camera
+  PVector position= new PVector(0,80, 0);
+  PVector direction = new PVector(0,8,0);
+  cam = new Camera(position, direction);
+  
+  //use a power of 2 + 1 for midpoint algorithm
   int landscapeN = (int)pow(2,10) + 1;
   float landscapeSize = 257;
   
+  //create a new landscape3D for terrain slightly smaller than water
   landscape3D = new Landscape3D(landscapeN,(landscapeSize-2*waterHeight)/float(landscapeN), redSand, 0);
   landscape3D.createPlane(0);
+  //generate terrain, and centre for water level
   landscape3D.midPointDisplacement(200,0.45);
   landscape3D.centrePlane();
-  landscape3D.box = false;
+  landscape3D.box = true;
   
+  //generate a water plane, and two water falls for the cube world
   water = new Landscape3D(landscapeN,landscapeSize/float(landscapeN), waterBlue, 220);
   water.createPlane(waterHeight);
-  water.getPreviousPosition();
   water.box = false;
+  water.shiny = 3.0;
   
   waterfallLeft = new Landscape3D(landscapeN,landscapeSize/float(landscapeN), waterBlue, 220);
   waterfallLeft.createPlane(waterHeight);
-  waterfallLeft.getPreviousPosition();
   waterfallLeft.box = false;
+  waterfallLeft.shiny = 4.0;
   
   waterfallRight = new Landscape3D(landscapeN,landscapeSize/float(landscapeN), waterBlue, 220);
   waterfallRight.createPlane(waterHeight);
-  waterfallRight.getPreviousPosition();
   waterfallRight.box = false;
+  waterfallRight.shiny = 4.0;
 }
 
 /* -----------------------------------------------------------------------------
 Draw
 ----------------------------------------------------------------------------- */ 
 void draw() {
-  //background(120,0,30);
   background(0);
-  //background(120*(0.5 + 0.5*(cos(2*PI*frameCount/15))),0,190*(1-(0.5 + 0.5*(cos(2*PI*frameCount/15)))));
-  //lighting
+  
+  //camera
+  cam.move();
+  cam.moveWithMouse();
+  cam.firstPersonViewFlying();
+  
+  //lighting does not revolve
   pushMatrix();
     isometricView(0);
-    //sunsetGeneral(0,-4, -1); 
-    
-    if(anim) {
-      sunsetWaterAnim(0,-4, -1);
-    } else {
-      sunsetWater(0,-4, -1);
-    }
+    drawSun(0,150,5);
+    sunsetGeneral(0,-7, -1); 
   popMatrix();
   
-  //land
+  //draw landscape, revolves with arrow keys
   pushMatrix();
     isometricView(angle);
     drawTerrain();
   popMatrix();
 
-  //Water
+  //Water does not revolve
   pushMatrix();
-    isometricView(0);   
-    //sunsetWater(0,-4, -1);
+    isometricView(0);
+    //replace lights with sunset refletions off water
+    noLights();
+    sunsetWater(0,-7, -1);
   
-    //make water with waves
     drawWater();
     //drawWaterfallLeft();
     //drawWaterfallRight();  
   popMatrix();
 
-  
+  //saving frames for gifs
   if(save && frames <30) {
     saveFrame(frames + ".png");
     frames++;
+  } else if(save) {
+    save = false;
+    frames = 0;
   }
-  
-  float angle = 2*PI*(mouseX-width/2)/width;
-  float angle2 = 2*PI*(mouseY-height/2)/height;
-  beginCamera();
-    camera(100, 100, -15, 1000*cos(-angle), 1000*sin(-angle), 800*sin(angle2), 0, 0, 1);
-    rotateZ(-PI/4);
-    rotateX(-PI/2 + asin(tan(PI/6)));    
-    translate(-width/2, -height/2);
-  endCamera();
   
 }
 /* -----------------------------------------------------------------------------
@@ -115,13 +136,18 @@ void drawTerrain() {
 }
 
 void drawWater() {
+  //wave functions add to existing position, so position gets reset each frame
   water.setPreviousPosition();
-  water.radialWaves(3, 11, 15, 3, 0);
-  water.radialWaves(5, 7,  40, 1, 100);
-  water.chamferEdges(40, waterHeight);
-  water.displayMeshLayered(1);
+  //water.radialWaves(1, 25, 5, 2, 0);
+  //water.radialWaves(2, 35,  13, 1, 100);
+  water.yWaves(1, 25, 9, 2, 0);
+  water.yWaves(2, 35,  15, 1, 150);
+  //chamfer edges gives smooth boundary for waterfalls
+  //water.chamferEdges(40, waterHeight);
+  water.displayMesh();
 }
 
+//waterfall left must be called immediately after drawWater() to position correctly
 void drawWaterfallLeft() {
   translate(0, floor(waterfallLeft.size/2),0);
   rotateX(-PI/2);
@@ -134,6 +160,7 @@ void drawWaterfallLeft() {
   waterfallLeft.displayMesh();
 }
 
+//waterfall right must be called immediately after drawWaterfallLeft() to position correctly
 void drawWaterfallRight() {
   translate(floor(waterfallLeft.size/2),0,0);
   translate(0, 0, -floor(waterfallLeft.size/2));
@@ -144,6 +171,7 @@ void drawWaterfallRight() {
   waterfallRight.chamferEdges(40, waterHeight);
   waterfallRight.displayMesh();
 }
+
 /* -----------------------------------------------------------------------------
 Cameras
 ----------------------------------------------------------------------------- */
@@ -152,74 +180,9 @@ void isometricView(float angle) {
   rotateX(PI/2 - asin(tan(PI/6)));
   rotateZ(PI/4 + angle);
 }
-/* -----------------------------------------------------------------------------
-lighting
------------------------------------------------------------------------------ */
-void sunsetGeneral(float x, float y, float z) {
-  float xp, yp, zp;
-  xp = -x * 100;
-  yp = -y * 100;
-  zp = -z * 100 - 20;
-  spotLight(200,200,150,xp,yp,zp,
-            x,y,z, PI/2, 50);
-  spotLight(200,200,150,xp,yp,zp,
-          x,y,z, PI/2, 50);
-  spotLight(150,150,230,xp,yp*1.2,zp*1.2,
-          x,y,z, PI/2, 100);
-}
-
-void sunsetWater(float x, float y, float z){
-  float xp, yp, zp;
-  xp = -x * 100;
-  yp = -y * 100;
-  zp = -z * 100 - 20;
-  
-  //red glow
-  lightSpecular(180,0,0);
-  spotLight(180,0,0,xp*1.2,yp*1.2,zp,
-            x,y,z, PI/3, 30);
-  //orange glow
-  lightSpecular(255,255,0);
-  spotLight(255,255,0,xp*1.1,yp*1.1,zp,
-            x,y,z, PI/6, 200);
-  //white glow 
-  lightSpecular(255,255,205);
-  spotLight(255,255,205,xp,yp,zp,
-            x,y,z, PI/12, 1000);
-  
-}
-
-void sunsetWaterAnim(float x, float y, float z){
-  float xp, yp, zp;
-  xp = -x * 100;
-  yp = -y * 100;
-  zp = -z * 100 - 20;
-  
-  float sunsetMod = 0.5 + 0.5*(cos(2*PI*frameCount/15));
-  float daylightMod = 1 - sunsetMod;
-  
-  rotateX(2*PI/30 * frameCount);
-  //red glow
-  lightSpecular(sunsetMod*180,0,0);
-  spotLight(sunsetMod*180,0,0,xp*1.2,yp*1.2,zp,
-            x,y,z, PI/3, 30);
-  //orange glow
-  lightSpecular(sunsetMod*255,sunsetMod*255,0);
-  spotLight(sunsetMod*255,sunsetMod*255,0,xp*1.1,yp*1.1,zp,
-            x,y,z, PI/6, 200);
-  //white glow 
-  lightSpecular(sunsetMod*255,sunsetMod*255,sunsetMod*205);
-  spotLight(sunsetMod*255,sunsetMod*255,sunsetMod*205,xp,yp,zp,
-            x,y,z, PI/12, 1000);
-  
-  //daylight
-  lightSpecular(daylightMod*150,daylightMod*150,daylightMod*200);
-  spotLight(daylightMod*255,daylightMod*255,daylightMod*255,xp,yp,zp*2,
-            x,y,z*2, PI, 10);
-}
 
 /* -----------------------------------------------------------------------------
-Save
+Save and change mode
 ----------------------------------------------------------------------------- */
 void mouseClicked(){ 
   saveFrame("image.png");
@@ -227,11 +190,25 @@ void mouseClicked(){
 
 void keyPressed(){
   //save 30 frames
-  if (key == 's') {
+  if (key == 'p') {
     save = true;
     //anim = true;
   }
-  //rotate view
+  
+  //change resolution
+  else if(key == 'm') {
+    if(highRes) {
+      landscape3D.lowResolution();
+      water.lowResolution();
+      highRes = false;
+    } else {
+      landscape3D.highResolution();
+      water.highResolution();
+      highRes = true;
+    }
+  }
+  
+  //rotate view for terrain
   else if (key == CODED) {
     switch(keyCode) {
       case LEFT:
